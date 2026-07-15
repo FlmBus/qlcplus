@@ -445,17 +445,23 @@ jobs:
 
   build-macos:
     runs-on: ${{ matrix.os }}
-    name: QLCplus macOS ${{matrix.task}} ${{matrix.os}}
+    name: QLCplus macOS ${{matrix.task}} ${{matrix.os}} Qt${{matrix.qt}}
     strategy:
       fail-fast: false
       matrix:
         task: [build-v4, build-v5]
-        os: [macos-15, macos-15-intel]
+        os: [macos-15]
+        qt: ["6.10.2"]
+        include:
+          # legacy Intel build with Qt 5.15 so the DMG runs on macOS 10.13+
+          - task: build-v4
+            os: macos-15-intel
+            qt: "5.15.2"
     env:
       CI_REPO_SLUG: ${{ github.repository }}
       CI_BRANCH: ${{ github.head_ref }}
       CI_PULL_REQUEST: ${{ github.event.number }}
-      QT_VERSION: "6.10.2"
+      QT_VERSION: ${{ matrix.qt }}
       MACOS_KEYCHAIN: build.keychain
       MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
       MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
@@ -476,7 +482,9 @@ jobs:
         run: |
           echo "BUILD_DATE=`date -u '+%Y%m%d'`" >> $GITHUB_ENV
           echo "GIT_REV=`git rev-parse --short HEAD`" >> $GITHUB_ENV
-          echo "QTDIR=${{ github.workspace }}/qt/Qt/${{ env.QT_VERSION }}/macos" >> $GITHUB_ENV
+          QT_ARCHDIR=macos
+          [[ "${{ env.QT_VERSION }}" == 5* ]] && QT_ARCHDIR=clang_64
+          echo "QTDIR=${{ github.workspace }}/qt/Qt/${{ env.QT_VERSION }}/${QT_ARCHDIR}" >> $GITHUB_ENV
           echo "NPROC=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
 
       - name: Set v4 ENV variables
@@ -507,7 +515,8 @@ jobs:
           brew install fftw mad libsndfile libftdi
           brew link --overwrite python@3.13
 
-      - name: Install Qt
+      - name: Install Qt 6
+        if: ${{ !startsWith(matrix.qt, '5') }}
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
@@ -515,6 +524,15 @@ jobs:
           target: 'desktop'
           arch: 'clang_64'
           modules: 'qt3d qtimageformats qtmultimedia qtserialport qtwebsockets'
+
+      - name: Install Qt 5
+        if: ${{ startsWith(matrix.qt, '5') }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          dir: "${{ github.workspace }}/qt/"
+          target: 'desktop'
+          arch: 'clang_64'
 
       - name: Import macOS signing certificate
         shell: bash
@@ -537,7 +555,7 @@ jobs:
         shell: bash
         if: ${{ matrix.task == 'build-v4' }}
         run: |-
-          cmake -S . -B build -DCMAKE_PREFIX_PATH="${{ env.QTDIR }}/lib/cmake" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -S . -B build -DCMAKE_PREFIX_PATH="${{ env.QTDIR }}/lib/cmake" -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ startsWith(matrix.qt, '5') && '10.13' || '10.15' }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Configure v5 build
         shell: bash
