@@ -444,12 +444,13 @@ jobs:
           path: ${{matrix.task}}-${{env.OUTFILE}}
 
   build-macos:
-    runs-on: macos-15
-    name: QLCplus macOS ${{matrix.task}}
+    runs-on: ${{ matrix.os }}
+    name: QLCplus macOS ${{matrix.task}} ${{matrix.os}}
     strategy:
       fail-fast: false
       matrix:
         task: [build-v4, build-v5]
+        os: [macos-15, macos-15-intel]
     env:
       CI_REPO_SLUG: ${{ github.repository }}
       CI_BRANCH: ${{ github.head_ref }}
@@ -530,7 +531,7 @@ jobs:
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2.23
         with:
-          key: ${{ github.job }}-${{ matrix.task }}
+          key: ${{ github.job }}-${{ matrix.task }}-${{ matrix.os }}
 
       - name: Configure v4 build
         shell: bash
@@ -620,5 +621,5 @@ jobs:
       - name: Store DMG artifact
         uses: actions/upload-artifact@v7
         with:
-          name: QLC+-${{env.APPVERSION}}-${{env.BUILD_DATE}}-${{env.GIT_REV}}.dmg
+          name: QLC+-${{env.APPVERSION}}-${{env.BUILD_DATE}}-${{env.GIT_REV}}-${{runner.arch}}.dmg
           path: QLC+_${{ matrix.task }}.dmg
