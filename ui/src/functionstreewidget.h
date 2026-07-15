@@ -32,9 +32,9 @@ class Doc;
 
 /**
  * FunctionsTreeWidget represents the tree of QLC+ functions,
- * including categories and folders.
+ * organized in folders.
  * It can be used anywhere in QLC+ to display functions organized
- * by categories and folders.
+ * by folders.
  * If drag & drop flags are turned on, it becomes a full node
  * editor, accessing functions' properties. Basically this mode
  * has to be used only by FunctionManager
@@ -43,10 +43,10 @@ class Doc;
  *
  * |              COL_NAME                     |           COL_PATH             |
  *  ------------------------------------------- --------------------------------
- * | Text: Function/category/folder name       | Text: path of category/folder  |
+ * | Text: Function/folder name                | Text: path of folder           |
  * | Data:                                     |       (not set for functions)  |
  * |   Qt::UserRole: function ID (or invalid)  |                                |
- * |   Qt::UserRole + 1: category type         |                                |
+ * |   Qt::UserRole + 1: function type         |                                |
  * |                     (Function::Type)      |                                |
  *  ------------------------------------------- --------------------------------
  */
@@ -69,7 +69,7 @@ public:
      *  a pointer to the created item */
     QTreeWidgetItem* addFunction(quint32 fid);
 
-    /** Return a suitable parent item for the $function's type */
+    /** Return a suitable parent item for the $function's path */
     QTreeWidgetItem* parentItem(const Function* function);
 
     /** Get the ID of the function represented by $item. */

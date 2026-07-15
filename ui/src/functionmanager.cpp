@@ -646,7 +646,7 @@ void FunctionManager::updateActionStatus()
         }
 
         // check if this is a folder
-        if (m_tree->selectedItems().count() == 1 && m_tree->indexOfTopLevelItem(firstItem) < 0)
+        if (m_tree->selectedItems().count() == 1 && firstItem->text(COL_PATH).isEmpty() == false)
             validSelection = true;
 
         m_addFolderAction->setEnabled(true);
@@ -782,13 +782,7 @@ void FunctionManager::deleteSelectedFunctions()
             m_doc->deleteFunction(fid);
         }
 
-        QTreeWidgetItem* parent = item->parent();
         delete item;
-        if (parent != NULL && parent->childCount() == 0)
-        {
-            if (m_tree->indexOfTopLevelItem(parent) >= 0)
-                m_tree->deleteFolder(parent);
-        }
     }
 }
 
