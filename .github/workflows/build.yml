@@ -1,6 +1,9 @@
 name: QLCplus Github Actions CI Build
 
-on: ["push", "pull_request"]
+# Upstream's CI, kept for reference but no longer triggered automatically:
+# its Linux job targets the retired ubuntu-20.04 runner. Our own builds live
+# in horizonthilo.yml. Run this manually if you ever want to compare.
+on: ["workflow_dispatch"]
 
 jobs:
   build-linux:

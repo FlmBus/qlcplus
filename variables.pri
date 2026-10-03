@@ -15,9 +15,14 @@ qmlui:  APPVERSION = 5.0.0 Beta 3
 # Compiler & linker configuration
 #############################################################################
 
-# Treat all compiler warnings as errors
-QMAKE_CXXFLAGS += -Werror
-unix:QMAKE_CFLAGS += -Werror
+# Treat all compiler warnings as errors.
+# Not on macOS: this tree is from 2023 and current Apple clang raises
+# warnings it never saw, which would fail the build for no useful reason.
+# The CMake build already excludes APPLE from -Werror (variables.cmake).
+!macx:!ios {
+    QMAKE_CXXFLAGS += -Werror
+    unix:QMAKE_CFLAGS += -Werror
+}
 
 CONFIG         += warn_on
 
