@@ -241,3 +241,122 @@ jobs:
           name: qlcplus-windows-x86_64
           path: ${{env.OUTFILE}}
           if-no-files-found: error
+
+  linux-appimage:
+    name: Linux AppImage (self-contained)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libfftw3-dev libftdi1-dev libmad0-dev \
+            libsndfile1-dev libudev-dev libusb-1.0-0-dev liblo-dev \
+            libgl1-mesa-dev libxml2-utils shared-mime-info pkg-config \
+            chrpath file desktop-file-utils
+
+      - name: Install Qt 5.15.2
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "5.15.2"
+          target: desktop
+          arch: gcc_64
+          modules: qtscript
+
+      # appimage=ON switches engine/src/CMakeLists.txt to qlcconfig.h.noroot.in,
+      # so the baked data/plugin paths are relative instead of rooted at /usr,
+      # and platforms/linux/CMakeLists.txt bundles the Qt libraries too.
+      - name: Configure
+        run: |
+          cmake -S . -B build -Dappimage=ON \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR/lib/cmake" \
+            -DINSTALL_ROOT="$PWD/AppDir"
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Install
+        run: cmake --install build
+
+      # On Linux QLCFile::systemDirectory() uses the baked path verbatim, so a
+      # relative one resolves against the working directory. Print what we
+      # actually got before assuming any particular layout.
+      - name: Report baked paths and layout
+        run: |
+          echo "=== generated qlcconfig.h ==="
+          grep -E 'APPVERSION|PLUGINDIR|FIXTUREDIR|RGBSCRIPTDIR|DATADIR' engine/src/qlcconfig.h || true
+          echo "=== AppDir directories ==="
+          find AppDir -type d | sort | sed 's|^|  |' | head -40
+          echo "=== QLC+ plugins ==="
+          find AppDir -name 'lib*.so' -path '*qlcplus*' | sed 's|^|  |' | head -30
+          echo "=== bundled Qt libs ==="
+          find AppDir -name 'libQt5*.so*' -o -name 'libicu*' | sed 's|^|  |' | head -30
+          echo "=== binaries ==="
+          find AppDir -type f -perm -u+x -name 'qlcplus*' | sed 's|^|  |'
+
+      - name: Assemble AppDir
+        run: |
+          set -eu
+          cp -v resources/icons/svg/qlcplus.svg AppDir/
+          cp -v platforms/linux/qlcplus.desktop AppDir/
+          strip AppDir/usr/bin/qlcplus || true
+          find AppDir -name 'libqlcplus*.so*' -exec strip {} \; || true
+
+          # QLCFile::systemDirectory() on Linux uses the baked path verbatim,
+          # and with appimage=ON that path is relative ("../lib/..."), so it
+          # resolves against the working directory. Pick the cwd that makes it
+          # land on the real plugin directory - the install root differs
+          # depending on how INSTALL_ROOT folds into INSTALLROOT, so detect it
+          # rather than assume.
+          cat > AppDir/AppRun <<'APPRUN'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export LD_LIBRARY_PATH="$HERE/usr/lib/x86_64-linux-gnu:$HERE/usr/lib:$HERE/lib/x86_64-linux-gnu:$HERE/lib:${LD_LIBRARY_PATH:-}"
+          for base in "$HERE/usr" "$HERE/usr/bin"; do
+              if [ -d "$base/../lib/qt5/plugins/qlcplus" ] || [ -d "$base/../lib/x86_64-linux-gnu/qt5/plugins/qlcplus" ]; then
+                  cd "$base" || exit 1
+                  break
+              fi
+          done
+          for p in "$HERE/usr/lib/x86_64-linux-gnu/qt5/plugins" "$HERE/usr/lib/qt5/plugins" "$HERE/lib/x86_64-linux-gnu/qt5/plugins" "$HERE/lib/qt5/plugins"; do
+              [ -d "$p" ] && export QT_PLUGIN_PATH="$p" && break
+          done
+          exec "$HERE/usr/bin/qlcplus" "$@"
+          APPRUN
+          sed -i 's/^          //' AppDir/AppRun
+          chmod +x AppDir/AppRun
+          echo "=== AppRun ==="
+          cat AppDir/AppRun
+
+      - name: Build AppImage
+        run: |
+          set -eu
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir \
+            "QLC+_$(grep -m1 APPVERSION variables.cmake | sed 's/.*"\(.*\)".*/\1/')-x86_64.AppImage"
+          ls -l *.AppImage
+
+      - name: Smoke test
+        run: |
+          set -eu
+          img=$(ls *.AppImage | head -1)
+          chmod +x "$img"
+          echo "=== --version (proves the binary and bundled Qt load) ==="
+          QT_QPA_PLATFORM=offscreen ./"$img" --appimage-extract-and-run --version
+          echo "=== I/O plugins actually present inside the image ==="
+          "./$img" --appimage-extract >/dev/null
+          found=$(find squashfs-root -path '*qt5/plugins/qlcplus*' -name 'libartnet.so' | head -1)
+          if [ -z "$found" ]; then echo "::error::no QLC+ I/O plugins inside the AppImage"; exit 1; fi
+          echo "  found $found"
+          rm -rf squashfs-root
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: qlcplus-linux-appimage
+          path: "*.AppImage"
+          if-no-files-found: error
