@@ -22,7 +22,9 @@ jobs:
 
       - name: Dependencies
         run: |
-          brew install qt@5 fftw libftdi libusb libsndfile mad
+          # No libsndfile/mad: we do not bundle audio file decoding, and their
+          # absence also makes qmake skip the audio decoder plugins.
+          brew install qt@5 fftw libftdi libusb
           echo "QTDIR=$(brew --prefix qt@5)" >> $GITHUB_ENV
           echo "$(brew --prefix qt@5)/bin" >> $GITHUB_PATH
 
@@ -32,7 +34,7 @@ jobs:
           "$QTDIR/bin/qmake" -query QT_VERSION
           clang --version | head -1
           echo "--- pkg-config visibility ---"
-          for m in fftw3 libftdi1 libusb-1.0 sndfile; do
+          for m in fftw3 libftdi1 libusb-1.0; do
             printf '%-12s %s\n' "$m" "$(pkg-config --modversion $m 2>&1 || echo MISSING)"
           done
 
@@ -68,14 +70,7 @@ jobs:
           done <<'LIBS'
           libftdi1:libftdi1.2.dylib
           libusb-1.0:libusb-1.0.0.dylib
-          mad:libmad.0.dylib
           fftw3:libfftw3.3.dylib
-          sndfile:libsndfile.1.dylib
-          ogg:libogg.0.dylib
-          flac:libFLAC.12.dylib
-          vorbis:libvorbis.0.dylib
-          vorbisenc:libvorbisenc.2.dylib
-          opus:libopus.0.dylib
           LIBS
           [ "$fail" -eq 0 ] || echo "::warning::at least one expected dylib name was missing; the install step may fail"
 

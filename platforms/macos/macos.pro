@@ -91,11 +91,11 @@ defineReplace(qt5LibTargetID) {
 }
 
 include(libusb-nametool.pri)
-include(libsndfile-nametool.pri)
+# libsndfile-nametool.pri is not included: we do not bundle audio file
+# decoding. See the LIBMAD/LIBSNDFILE note below.
 
 LIBFTDI1_FILE = libftdi1.2.dylib
 LIBFFTW_FILE = libfftw3.3.dylib
-LIBMAD_FILE = libmad.0.dylib
 
 !qmlui: {
  INSTALLS += $$libraryTargetID(LIBQLCUI, libqlcplusui.1.dylib)
@@ -105,8 +105,15 @@ LIBMAD_FILE = libmad.0.dylib
 INSTALLS += $$libraryTargetID(LIBQLCENGINE, libqlcplusengine.1.dylib)
 INSTALLS += LIBUSB LIBUSB_ID
 INSTALLS += $$systemLibTarget(LIBFTDI, $$LIBFTDI1_FILE, libftdi1) $$libraryTargetID(LIBFTDI, $$LIBFTDI1_FILE)
-INSTALLS += $$systemLibTarget(LIBMAD, $$LIBMAD_FILE, mad) $$libraryTargetID(LIBMAD, $$LIBMAD_FILE)
-INSTALLS += LIBSNDFILE LIBSNDFILE_ID
+# We do not bundle libmad or libsndfile. Audio always comes from the DAW, so
+# QLC+ never decodes audio files for us, and bundling them means tracking the
+# soname of every codec libsndfile pulls in - flac, ogg, vorbis, opus, mpg123
+# and lame. That list is already stale in 4.13.1: FLAC 1.5.0 moved past
+# libFLAC.12.dylib, and current libsndfile also needs mpg123 and lame, which
+# this tree never bundled. Dropping it removes a whole class of breakage.
+# The audio decoder plugins themselves are skipped automatically, because
+# qmake's packagesExist() finds no sndfile/mad. Qt's own CoreAudio plugin is
+# still installed via audioplugins-nametool.pri.
 INSTALLS += $$systemLibTarget(LIBFFTW, $$LIBFFTW_FILE, fftw3) $$libraryTargetID(LIBFFTW, $$LIBFFTW_FILE)
 
 INSTALLS += $$qt5LibTarget(LIBQTCORE, QtCore) $$qt5LibTargetID(LIBQTCORE, QtCore)
@@ -170,12 +177,7 @@ qtnametool.commands += && $$LIBQTCORE_INSTALL_NAME_TOOL \
 qtnametool.commands += && $$LIBUSB1_INSTALL_NAME_TOOL \
     $$INSTALLROOT/$$LIBSDIR/$$LIBFTDI1_FILE
 
-# libqlcplusengine depends on libmad, libsndfile, libportaudio and libfftw3
-qtnametool.commands += && $$LIBMAD_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBQLCENGINE_FILE
-qtnametool.commands += && $$LIBSNDFILE_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBQLCENGINE_FILE
-
+# libqlcplusengine depends on libportaudio and libfftw3
 lessThan(QT_MAJOR_VERSION, 5) {
     # libqlcplusengine depends on libportaudio
     qtnametool.commands += && $$LIBPORTAUDIO_INSTALL_NAME_TOOL \
@@ -199,32 +201,6 @@ lessThan(QT_MAJOR_VERSION, 5) {
 
 qtnametool.commands += && $$LIBFFTW_INSTALL_NAME_TOOL \
     $$INSTALLROOT/$$LIBSDIR/$$LIBQLCENGINE_FILE
-
-# libsndfile depends on flac, libvorbis, libvorbisenc, libopus and libogg
-qtnametool.commands += && $$LIBOGG_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBSNDFILE_FILE
-qtnametool.commands += && $$LIBFLAC_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBSNDFILE_FILE
-qtnametool.commands += && $$LIBVORBIS_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBSNDFILE_FILE
-qtnametool.commands += && $$LIBVORBISENC_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBSNDFILE_FILE
-qtnametool.commands += && $$LIBOPUS_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBSNDFILE_FILE
-
-# libFLAC depends on libogg
-qtnametool.commands += && $$LIBOGG_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBFLAC_FILE
-
-# libvorbis depends on libogg
-qtnametool.commands += && $$LIBOGG_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBVORBIS_FILE
-
-# libvorbisenc depends on libvorbis and libogg
-qtnametool.commands += && $$LIBVORBIS_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBVORBISENC_FILE
-qtnametool.commands += && $$LIBOGG_INSTALL_NAME_TOOL \
-    $$INSTALLROOT/$$LIBSDIR/$$LIBVORBISENC_FILE
 
 include(platformplugins-nametool.pri)
 include(imageformats-nametool.pri)
