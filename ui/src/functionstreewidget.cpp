@@ -160,15 +160,17 @@ QTreeWidgetItem* FunctionsTreeWidget::functionItem(const Function* function)
 void FunctionsTreeWidget::addFolder()
 {
     blockSignals(true);
-    if (selectedItems().isEmpty())
-    {
-        blockSignals(false);
-        return;
-    }
 
-    QTreeWidgetItem *item = selectedItems().first();
-    if (item->text(COL_PATH).isEmpty())
-        item = item->parent();
+    /* No selection means the root of the tree. A selected function has no
+       path of its own, so fall back to its parent folder - which is NULL for
+       one sitting at the root, and that is the root again. */
+    QTreeWidgetItem *item = NULL;
+    if (selectedItems().isEmpty() == false)
+    {
+        item = selectedItems().first();
+        if (item->text(COL_PATH).isEmpty())
+            item = item->parent();
+    }
 
     QString fullPath;
     if (item != NULL)

@@ -635,6 +635,13 @@ void FunctionManager::updateActionStatus()
     bool validSelection = false;
     m_cloneAction->setEnabled(false);
 
+    /* Adding a folder is always possible. It used to require a selection
+       because the per-type category nodes guaranteed there was a parent to add
+       into; without them an empty selection means "create at the root", so
+       disabling the action here made the first top-level folder
+       uncreatable. */
+    m_addFolderAction->setEnabled(true);
+
     if (m_tree->selectedItems().isEmpty() == false)
     {
         QTreeWidgetItem *firstItem = m_tree->selectedItems().first();
@@ -648,11 +655,7 @@ void FunctionManager::updateActionStatus()
         // check if this is a folder
         if (m_tree->selectedItems().count() == 1 && firstItem->text(COL_PATH).isEmpty() == false)
             validSelection = true;
-
-        m_addFolderAction->setEnabled(true);
     }
-    else
-        m_addFolderAction->setEnabled(false);
 
     if (validSelection == true)
     {
