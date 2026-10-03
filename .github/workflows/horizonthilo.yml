@@ -144,7 +144,13 @@ jobs:
         shell: bash
         run: |
           echo "NPROC=$(nproc)" >> $GITHUB_ENV
-          echo "OUTFILE=$(grep 'OutFile' platforms/windows/qlcplus4Qt5.nsi | cut -d'"' -f 2)" >> $GITHUB_ENV
+          # The .nsi hardcodes OutFile "QLC+_4.13.1.exe", which would ship our
+          # fork under a name indistinguishable from a stock build. Stamp the
+          # real version in before reading it back.
+          ver=$(grep '^!qmlui' variables.pri | sed 's/.*= *//' | tr -d '\r')
+          sed -i "s|^OutFile .*|OutFile \"QLC+_${ver}.exe\"|" platforms/windows/qlcplus4Qt5.nsi
+          grep '^OutFile' platforms/windows/qlcplus4Qt5.nsi
+          echo "OUTFILE=QLC+_${ver}.exe" >> $GITHUB_ENV
           echo "NSIS_SCRIPT=qlcplus4Qt5.nsi" >> $GITHUB_ENV
 
       - name: Update and install MSYS2
@@ -336,8 +342,12 @@ jobs:
           set -eu
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
+          # Take the version from variables.pri: its v4 line comes first, while
+          # variables.cmake lists the qmlui one first and would yield
+          # "5.0.0 Beta 3" - spaces and all.
+          ver=$(grep '^!qmlui' variables.pri | sed 's/.*= *//' | tr -d '\r')
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir \
-            "QLC+_$(grep -m1 APPVERSION variables.cmake | sed 's/.*"\(.*\)".*/\1/')-x86_64.AppImage"
+            "QLC+_${ver}-x86_64.AppImage"
           ls -l *.AppImage
 
       - name: Smoke test
@@ -345,8 +355,10 @@ jobs:
           set -eu
           img=$(ls *.AppImage | head -1)
           chmod +x "$img"
+          # "offscreen" is not among the bundled platform plugins (only
+          # linuxfb, minimal and xcb are), so force "minimal" instead.
           echo "=== --version (proves the binary and bundled Qt load) ==="
-          QT_QPA_PLATFORM=offscreen ./"$img" --appimage-extract-and-run --version
+          QT_QPA_PLATFORM=minimal ./"$img" --appimage-extract-and-run --version
           echo "=== I/O plugins actually present inside the image ==="
           "./$img" --appimage-extract >/dev/null
           found=$(find squashfs-root -path '*qt5/plugins/qlcplus*' -name 'libartnet.so' | head -1)
