@@ -103,12 +103,15 @@ public:
 
     FunctionsTreeWidget(Doc* doc, QWidget *parent = 0);
 
-    /** Split a function name of the form "TYP - Group - Description" into its
-        three parts. Returns false, leaving the outputs untouched, when $name
-        does not follow the convention - as song-specific functions generally
-        do not. */
-    static bool splitName(const QString& name, QString& type,
-                          QString& group, QString& description);
+    /** Split a function name of the form "Group - TYP - Title" into its three
+        parts. Returns false, leaving the outputs untouched, when $name does
+        not follow the convention - as song-specific functions generally do
+        not.
+
+        "name" is the whole string as the engine stores it; the three parts are
+        the group, the type and the title. */
+    static bool splitName(const QString& name, QString& group,
+                          QString& type, QString& title);
 
     /** The full, unsplit name of whatever $item represents: a function's name
         straight from the engine, or a folder's name. Use this instead of

@@ -29,8 +29,8 @@ class FunctionsTreeWidget;
  */
 
 /**
- * Draws the type and fixture group of a function as pills in front of its
- * title, for names following the "TYP - Group - Description" convention.
+ * Draws the fixture group and type of a function as pills in front of its
+ * title, for names following the "Group - TYP - Title" convention.
  *
  * The three parts live in their own columns of the item - only the first is
  * visible, the other two are read from here - so this delegate paints rather
@@ -59,9 +59,10 @@ public:
         when the widget measures the tree, so the two cannot disagree. */
     static int pillWidth(const QString& text, const QFont& font);
 
-    /** Space the type and group pills of one row need together, including the
-        gap that separates them from the title. */
-    static int tagZoneWidth(const QString& type, const QString& group, const QFont& font);
+    /** Space the group and type pills of one row need together, including the
+        gap that separates them from the title. Argument order follows the
+        naming scheme: group, then type. */
+    static int tagZoneWidth(const QString& group, const QString& type, const QFont& font);
 
     /** The pill font for $base: pills are bold, so they read as labels rather
         than as part of the title. */

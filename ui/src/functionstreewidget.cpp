@@ -104,9 +104,9 @@ FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
     m_delegate = new FunctionsTreeDelegate(this);
     setItemDelegate(m_delegate);
 
-    /* Sort by type first: that reproduces the order the single-column tree
-       used to show, since the type code led every name. */
-    sortItems(COL_TYPE, Qt::AscendingOrder);
+    /* Sort by group first, matching the order the name itself is written in:
+       group, then type, then title. */
+    sortItems(COL_GROUP, Qt::AscendingOrder);
 
     /* Monospace, so names and numbers line up when scanning down the list.
        Take the platform's own fixed-pitch font - Menlo on macOS, Consolas on
@@ -128,18 +128,18 @@ FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
                 this, SLOT(slotItemChanged(QTreeWidgetItem*)));
 }
 
-bool FunctionsTreeWidget::splitName(const QString& name, QString& type,
-                                   QString& group, QString& description)
+bool FunctionsTreeWidget::splitName(const QString& name, QString& group,
+                                   QString& type, QString& title)
 {
     QStringList parts = name.split(KNameSeparator);
     if (parts.count() < 3)
         return false;
 
-    /* Only treat the first part as a type code when it looks like one: a
-       short, upper case tag. Without this a song function that happens to
-       have dashes in its name - "Intro - Build - Drop" - would be torn apart
-       as if it were a fixture function. */
-    QString candidate = parts.first();
+    /* The group leads, so it is the second part that has to look like a type
+       code - a short upper case tag - for this to be a fixture function at
+       all. That check is what keeps a song function with dashes in its name,
+       "Intro - Build - Drop", from being torn apart as if it were one. */
+    QString candidate = parts.at(1);
     if (candidate.length() < 2 || candidate.length() > 4)
         return false;
     for (int i = 0; i < candidate.length(); i++)
@@ -148,10 +148,10 @@ bool FunctionsTreeWidget::splitName(const QString& name, QString& type,
             return false;
     }
 
-    type = parts.takeFirst();
     group = parts.takeFirst();
-    /* Anything left belongs to the description, separators and all. */
-    description = parts.join(KNameSeparator);
+    type = parts.takeFirst();
+    /* Anything left belongs to the title, separators and all. */
+    title = parts.join(KNameSeparator);
 
     return true;
 }
@@ -238,10 +238,10 @@ void FunctionsTreeWidget::updateFunctionItem(QTreeWidgetItem* item, const Functi
 {
     Q_ASSERT(item != NULL);
     Q_ASSERT(function != NULL);
-    QString type, group, description;
-    if (splitName(function->name(), type, group, description))
+    QString group, type, title;
+    if (splitName(function->name(), group, type, title))
     {
-        item->setText(COL_NAME, description);
+        item->setText(COL_NAME, title);
         item->setText(COL_TYPE, type);
         item->setText(COL_GROUP, group);
     }
@@ -592,8 +592,8 @@ void FunctionsTreeWidget::updateTagZoneWidth()
     while (*it != NULL)
     {
         QTreeWidgetItem *item = *it;
-        widest = qMax(widest, FunctionsTreeDelegate::tagZoneWidth(item->text(COL_TYPE),
-                                                                  item->text(COL_GROUP),
+        widest = qMax(widest, FunctionsTreeDelegate::tagZoneWidth(item->text(COL_GROUP),
+                                                                  item->text(COL_TYPE),
                                                                   font()));
         ++it;
     }

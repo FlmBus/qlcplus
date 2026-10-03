@@ -59,17 +59,17 @@ int FunctionsTreeDelegate::pillWidth(const QString& text, const QFont& font)
     return QFontMetrics(font).horizontalAdvance(text) + (2 * PILL_H_PADDING);
 }
 
-int FunctionsTreeDelegate::tagZoneWidth(const QString& type, const QString& group,
+int FunctionsTreeDelegate::tagZoneWidth(const QString& group, const QString& type,
                                         const QFont& font)
 {
     const QFont pill = pillFont(font);
 
-    int width = pillWidth(type, pill);
-    const int groupWidth = pillWidth(group, pill);
+    int width = pillWidth(group, pill);
+    const int typeWidth = pillWidth(type, pill);
 
-    if (width > 0 && groupWidth > 0)
+    if (width > 0 && typeWidth > 0)
         width += PILL_GAP;
-    width += groupWidth;
+    width += typeWidth;
 
     if (width > 0)
         width += TITLE_GAP;
@@ -127,25 +127,10 @@ void FunctionsTreeDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
     int x = textRect.left();
     const QRect pillRect = textRect.adjusted(0, PILL_V_INSET, 0, -PILL_V_INSET);
 
-    /* Type pill, then group pill. Solid fill with the text in whichever of
-       black or white reads on it, so a pill is legible whatever colour it
-       ended up with - including on a selected row, where the row's own
-       highlight never shows through. */
-    if (type.isEmpty() == false)
-    {
-        const QColor fill = functionTypeTagColor(type, background);
-        const int width = pillWidth(type, pill);
-
-        painter->setBrush(fill);
-        painter->drawRoundedRect(QRect(x, pillRect.top(), width, pillRect.height()),
-                                 PILL_RADIUS, PILL_RADIUS);
-        painter->setPen(readableTextOn(fill));
-        painter->drawText(QRect(x, pillRect.top(), width, pillRect.height()),
-                          Qt::AlignCenter, type);
-        painter->setPen(Qt::NoPen);
-        x += width + PILL_GAP;
-    }
-
+    /* Group pill, then type pill, in the order the name is written. Solid
+       fill with the text in whichever of black or white reads on it, so a pill
+       is legible whatever colour it ended up with - including on a selected
+       row, where the row's own highlight never shows through. */
     if (group.isEmpty() == false && m_tree != NULL)
     {
         const QColor fill = functionGroupTagColor(m_tree->groupColorIndex(group), background);
@@ -157,6 +142,21 @@ void FunctionsTreeDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
         painter->setPen(readableTextOn(fill));
         painter->drawText(QRect(x, pillRect.top(), width, pillRect.height()),
                           Qt::AlignCenter, group);
+        painter->setPen(Qt::NoPen);
+        x += width + PILL_GAP;
+    }
+
+    if (type.isEmpty() == false)
+    {
+        const QColor fill = functionTypeTagColor(type, background);
+        const int width = pillWidth(type, pill);
+
+        painter->setBrush(fill);
+        painter->drawRoundedRect(QRect(x, pillRect.top(), width, pillRect.height()),
+                                 PILL_RADIUS, PILL_RADIUS);
+        painter->setPen(readableTextOn(fill));
+        painter->drawText(QRect(x, pillRect.top(), width, pillRect.height()),
+                          Qt::AlignCenter, type);
     }
 
     painter->restore();
@@ -166,7 +166,7 @@ void FunctionsTreeDelegate::paint(QPainter* painter, const QStyleOptionViewItem&
        whose pills are wider than the common zone - possible if the zone was
        capped - pushes its own title along instead of overlapping it. */
     const int titleLeft = qMax(textRect.left() + m_tagZoneWidth,
-                               x + pillWidth(group, pill) + TITLE_GAP);
+                               x + pillWidth(type, pill) + TITLE_GAP);
     const int titleWidth = textRect.right() - titleLeft;
 
     if (titleWidth <= 0)

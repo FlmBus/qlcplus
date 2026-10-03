@@ -64,7 +64,7 @@ FunctionSelection::FunctionSelection(QWidget* parent, Doc* doc)
     m_funcTree->setRootIsDecorated(true);
     m_funcTree->setAllColumnsShowFocus(true);
     m_funcTree->setSortingEnabled(true);
-    m_funcTree->sortByColumn(FunctionsTreeWidget::COL_TYPE, Qt::AscendingOrder);
+    m_funcTree->sortByColumn(FunctionsTreeWidget::COL_GROUP, Qt::AscendingOrder);
     m_treeVbox->addWidget(m_funcTree);
 
     QAction* action = new QAction(this);

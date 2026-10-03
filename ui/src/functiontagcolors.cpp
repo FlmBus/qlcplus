@@ -152,9 +152,16 @@ QColor functionGroupTagColor(int groupIndex, const QColor& background)
 
 QColor readableTextOn(const QColor& fill)
 {
-    /* Pick whichever of black or white the fill contrasts with better, rather
-       than guessing from a lightness threshold - the two disagree around
-       mid-tones, which is exactly where pill colours sit. */
-    return contrastRatio(Qt::black, fill) >= contrastRatio(Qt::white, fill)
+    /* Prefer white, and only switch to black when black is clearly the better
+       of the two.
+       Simply taking whichever wins does not work: the point where they cross
+       is at a relative luminance of about 0.18, which is still a dark colour,
+       so fills that plainly want white text come out a hair in black's favour
+       - a dark teal measured 4.62 against black and 4.54 against white, and
+       got black. At that margin the winner is noise rather than a difference
+       anyone can see. Requiring black to be half again better keeps those
+       dark fills on white text, while the pale fills of a dark theme, where
+       black wins several times over, still get black. */
+    return contrastRatio(Qt::black, fill) >= (1.5 * contrastRatio(Qt::white, fill))
            ? QColor(Qt::black) : QColor(Qt::white);
 }

@@ -737,7 +737,7 @@ void FunctionManager::initTree()
     m_tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setSortingEnabled(true);
-    m_tree->sortByColumn(FunctionsTreeWidget::COL_TYPE, Qt::AscendingOrder);
+    m_tree->sortByColumn(FunctionsTreeWidget::COL_GROUP, Qt::AscendingOrder);
     m_tree->setDragEnabled(true);
     m_tree->setAcceptDrops(true);
     m_tree->setDragDropMode(QAbstractItemView::InternalMove);
