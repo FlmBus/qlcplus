@@ -18,6 +18,7 @@
 */
 
 #include <QContextMenuEvent>
+#include <QBrush>
 #include <QTreeWidgetItemIterator>
 #include <QFontDatabase>
 #include <QMouseEvent>
@@ -25,6 +26,7 @@
 #include <QCollator>
 #include <QDebug>
 
+#include "functiontagcolors.h"
 #include "functionstreewidget.h"
 #include "function.h"
 #include "doc.h"
@@ -241,6 +243,23 @@ void FunctionsTreeWidget::updateFunctionItem(QTreeWidgetItem* item, const Functi
     /* The split name is still one name, so keep the whole of it within reach. */
     for (int i = COL_NAME; i < COL_PATH; i++)
         item->setToolTip(i, function->name());
+
+    /* Colour the two parsed columns so the list can be scanned by eye. Both
+       colours are derived against the row background, so they follow the
+       system theme rather than assuming one. An unsplit name leaves both
+       columns empty, and resetting the brushes keeps a renamed function from
+       carrying a stale colour. */
+    const QColor background = palette().color(QPalette::Base);
+    if (type.isEmpty())
+    {
+        item->setForeground(COL_TYPE, QBrush());
+        item->setForeground(COL_GROUP, QBrush());
+    }
+    else
+    {
+        item->setForeground(COL_TYPE, QBrush(functionTypeTagColor(type, background)));
+        item->setForeground(COL_GROUP, QBrush(functionGroupTagColor(group, background)));
+    }
 
     item->setIcon(COL_NAME, function->getIcon());
     item->setData(COL_NAME, Qt::UserRole, function->id());

@@ -75,6 +75,7 @@ add_library(${module_name}
     functionmanager.cpp functionmanager.h
     functionselection.cpp functionselection.h functionselection.ui
     functionstreewidget.cpp functionstreewidget.h
+    functiontagcolors.cpp functiontagcolors.h
     functionwizard.cpp functionwizard.h functionwizard.ui
     grandmasterslider.cpp grandmasterslider.h
     groupsconsole.cpp groupsconsole.h

@@ -83,6 +83,7 @@ HEADERS += aboutbox.h \
            functionliveeditdialog.h \
            functionselection.h \
            functionstreewidget.h \
+           functiontagcolors.h \
            functionwizard.h \
            grandmasterslider.h \
            groupsconsole.h \
@@ -265,6 +266,7 @@ SOURCES += aboutbox.cpp \
            functionmanager.cpp \
            functionselection.cpp \
            functionstreewidget.cpp \
+           functiontagcolors.cpp \
            functionwizard.cpp \
            grandmasterslider.cpp \
            groupsconsole.cpp \
