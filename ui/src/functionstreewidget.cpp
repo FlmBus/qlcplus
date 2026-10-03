@@ -21,20 +21,84 @@
 #include <QTreeWidgetItemIterator>
 #include <QFontDatabase>
 #include <QMouseEvent>
+#include <QHeaderView>
+#include <QCollator>
 #include <QDebug>
 
 #include "functionstreewidget.h"
 #include "function.h"
 #include "doc.h"
 
-#define COL_NAME 0
-#define COL_PATH 1
+/* Separator between the parts of a fixture function's name:
+   "TYP - Group - Description" */
+static const QString KNameSeparator(" - ");
+
+/** Compare two strings the way a person reads them: case is ignored and runs
+    of digits compare by value, so "INT - Bars - 50%" lands above
+    "INT - Bars - 100%". */
+static int naturalCompare(const QString& left, const QString& right)
+{
+    static QCollator collator;
+    static bool initialized = false;
+    if (initialized == false)
+    {
+        collator.setNumericMode(true);
+        collator.setCaseSensitivity(Qt::CaseInsensitive);
+        initialized = true;
+    }
+
+    return collator.compare(left, right);
+}
+
+bool FunctionTreeItem::operator<(const QTreeWidgetItem& other) const
+{
+    int column = FunctionsTreeWidget::COL_NAME;
+    if (treeWidget() != NULL)
+        column = treeWidget()->sortColumn();
+
+    /* The sorted column leads; the other two follow in the order the name
+       itself is written. */
+    QList<int> keys;
+    keys << column;
+    if (column == FunctionsTreeWidget::COL_TYPE)
+        keys << FunctionsTreeWidget::COL_GROUP << FunctionsTreeWidget::COL_NAME;
+    else if (column == FunctionsTreeWidget::COL_GROUP)
+        keys << FunctionsTreeWidget::COL_TYPE << FunctionsTreeWidget::COL_NAME;
+    else
+        keys << FunctionsTreeWidget::COL_TYPE << FunctionsTreeWidget::COL_GROUP;
+
+    foreach (int key, keys)
+    {
+        int result = naturalCompare(text(key), other.text(key));
+        if (result != 0)
+            return result < 0;
+    }
+
+    return false;
+}
 
 FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
     QTreeWidget(parent)
   , m_doc(doc)
 {
-    sortItems(COL_NAME, Qt::AscendingOrder);
+    /* The name of a fixture function carries three dimensions:
+       "TYP - Group - Description". Give each one its own column so they line
+       up and can be sorted on, and keep COL_PATH - storage for a folder's
+       path - just past the last visible one. */
+    setColumnCount(COL_PATH);
+    QStringList labels;
+    labels << tr("Function") << tr("Type") << tr("Group");
+    setHeaderLabels(labels);
+
+    /* The description can be long and the two parsed columns never are. */
+    header()->setStretchLastSection(false);
+    header()->setSectionResizeMode(COL_NAME, QHeaderView::Stretch);
+    header()->setSectionResizeMode(COL_TYPE, QHeaderView::ResizeToContents);
+    header()->setSectionResizeMode(COL_GROUP, QHeaderView::ResizeToContents);
+
+    /* Sort by type first: that reproduces the order the single-column tree
+       used to show, since the type code led every name. */
+    sortItems(COL_TYPE, Qt::AscendingOrder);
 
     /* Monospace, so names and numbers line up when scanning down the list.
        Take the platform's own fixed-pitch font - Menlo on macOS, Consolas on
@@ -56,6 +120,46 @@ FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
                 this, SLOT(slotItemChanged(QTreeWidgetItem*)));
 }
 
+bool FunctionsTreeWidget::splitName(const QString& name, QString& type,
+                                   QString& group, QString& description)
+{
+    QStringList parts = name.split(KNameSeparator);
+    if (parts.count() < 3)
+        return false;
+
+    /* Only treat the first part as a type code when it looks like one: a
+       short, upper case tag. Without this a song function that happens to
+       have dashes in its name - "Intro - Build - Drop" - would be torn apart
+       as if it were a fixture function. */
+    QString candidate = parts.first();
+    if (candidate.length() < 2 || candidate.length() > 4)
+        return false;
+    for (int i = 0; i < candidate.length(); i++)
+    {
+        if (candidate.at(i).isUpper() == false && candidate.at(i).isDigit() == false)
+            return false;
+    }
+
+    type = parts.takeFirst();
+    group = parts.takeFirst();
+    /* Anything left belongs to the description, separators and all. */
+    description = parts.join(KNameSeparator);
+
+    return true;
+}
+
+QString FunctionsTreeWidget::itemName(const QTreeWidgetItem* item) const
+{
+    if (item == NULL)
+        return QString();
+
+    Function* function = m_doc->function(itemFunctionId(item));
+    if (function != NULL)
+        return function->name();
+
+    return item->text(COL_NAME);
+}
+
 void FunctionsTreeWidget::updateTree()
 {
     blockSignals(true);
@@ -65,7 +169,7 @@ void FunctionsTreeWidget::updateTree()
     foreach (Function* function, m_doc->functions())
     {
         if (function->isVisible())
-            updateFunctionItem(new QTreeWidgetItem(parentItem(function)), function);
+            updateFunctionItem(new FunctionTreeItem(parentItem(function)), function);
     }
 
     blockSignals(false);
@@ -106,7 +210,7 @@ QTreeWidgetItem *FunctionsTreeWidget::addFunction(quint32 fid)
 
     blockSignals(true);
     QTreeWidgetItem* parent = parentItem(function);
-    item = new QTreeWidgetItem(parent);
+    item = new FunctionTreeItem(parent);
     updateFunctionItem(item, function);
     if (parent != NULL)
         function->setPath(parent->text(COL_PATH));
@@ -118,7 +222,26 @@ void FunctionsTreeWidget::updateFunctionItem(QTreeWidgetItem* item, const Functi
 {
     Q_ASSERT(item != NULL);
     Q_ASSERT(function != NULL);
-    item->setText(COL_NAME, function->name());
+    QString type, group, description;
+    if (splitName(function->name(), type, group, description))
+    {
+        item->setText(COL_NAME, description);
+        item->setText(COL_TYPE, type);
+        item->setText(COL_GROUP, group);
+    }
+    else
+    {
+        /* Not a fixture function: show the name as it is and leave the two
+           parsed columns empty rather than inventing parts for it. */
+        item->setText(COL_NAME, function->name());
+        item->setText(COL_TYPE, QString());
+        item->setText(COL_GROUP, QString());
+    }
+
+    /* The split name is still one name, so keep the whole of it within reach. */
+    for (int i = COL_NAME; i < COL_PATH; i++)
+        item->setToolTip(i, function->name());
+
     item->setIcon(COL_NAME, function->getIcon());
     item->setData(COL_NAME, Qt::UserRole, function->id());
     item->setData(COL_NAME, Qt::UserRole + 1, function->type());
@@ -209,9 +332,9 @@ void FunctionsTreeWidget::addFolder()
 
     QTreeWidgetItem *folder = NULL;
     if (item != NULL)
-        folder = new QTreeWidgetItem(item);
+        folder = new FunctionTreeItem(item);
     else
-        folder = new QTreeWidgetItem(this);
+        folder = new FunctionTreeItem(this);
     folder->setText(COL_NAME, newName);
     folder->setIcon(COL_NAME, QIcon(":/folder.png"));
     folder->setData(COL_NAME, Qt::UserRole, Function::invalidId());
@@ -292,9 +415,9 @@ QTreeWidgetItem *FunctionsTreeWidget::folderItem(QString name)
         {
             QTreeWidgetItem *folder = NULL;
             if (parentNode != NULL)
-                folder = new QTreeWidgetItem(parentNode);
+                folder = new FunctionTreeItem(parentNode);
             else
-                folder = new QTreeWidgetItem(this);
+                folder = new FunctionTreeItem(this);
             folder->setText(COL_NAME, level);
             folder->setIcon(COL_NAME, QIcon(":/folder.png"));
             folder->setData(COL_NAME, Qt::UserRole, Function::invalidId());

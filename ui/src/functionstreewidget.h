@@ -41,22 +41,77 @@ class Doc;
  *
  * Data is organized in the following way:
  *
- * |              COL_NAME                     |           COL_PATH             |
- *  ------------------------------------------- --------------------------------
- * | Text: Function/folder name                | Text: path of folder           |
- * | Data:                                     |       (not set for functions)  |
- * |   Qt::UserRole: function ID (or invalid)  |                                |
- * |   Qt::UserRole + 1: function type         |                                |
- * |                     (Function::Type)      |                                |
- *  ------------------------------------------- --------------------------------
+ * |          COL_NAME           |  COL_TYPE  | COL_GROUP |      COL_PATH      |
+ *  ----------------------------- ------------ ----------- --------------------
+ * | Text: description part of   | Text: type | Text:     | Text: path of      |
+ * |       the function name, or |       code |   fixture |   folder (not set  |
+ * |       the whole name when   |   (empty   |   group   |   for functions)   |
+ * |       it is not of the form |   for      |   (as     |                    |
+ * |       "TYP - Group - Descr" |   folders) |   above)  |                    |
+ * | Data:                       |            |           |                    |
+ * |   Qt::UserRole: function ID |            |           |                    |
+ * |                 (or invalid)|            |           |                    |
+ * |   Qt::UserRole + 1: function|            |           |                    |
+ * |          type (Function::Type)          |           |                     |
+ *  ----------------------------- ------------ ----------- --------------------
+ *
+ * COL_PATH is past the last visible column, so it is storage only - the same
+ * trick mainline uses for it. The type and group columns are presentation
+ * only: they are parsed back out of the function's name every time an item is
+ * updated, and never written anywhere. A function's name remains one single
+ * string in the engine and in the project file, so projects stay readable by
+ * mainline QLC+.
  */
+
+/**
+ * A tree item that sorts on all three name columns at once. Whichever column
+ * the user sorted by is the primary key, and the remaining two break ties in
+ * the order the name itself is written, so that e.g. sorting by group still
+ * leaves each group's functions ordered by type and then by description.
+ *
+ * Every item placed in a FunctionsTreeWidget should be one of these, so that
+ * all of them sort by the same rules.
+ */
+class FunctionTreeItem : public QTreeWidgetItem
+{
+public:
+    FunctionTreeItem(QTreeWidget* parent)
+        : QTreeWidgetItem(parent) { }
+
+    FunctionTreeItem(QTreeWidgetItem* parent)
+        : QTreeWidgetItem(parent) { }
+
+    bool operator<(const QTreeWidgetItem& other) const;
+};
 
 class FunctionsTreeWidget : public QTreeWidget
 {
     Q_OBJECT
 
 public:
+    /** Columns of the tree. Everything below COL_PATH is visible; COL_PATH
+        itself is only a place to keep a folder's path around. */
+    enum Column
+    {
+        COL_NAME = 0,
+        COL_TYPE = 1,
+        COL_GROUP = 2,
+        COL_PATH = 3
+    };
+
     FunctionsTreeWidget(Doc* doc, QWidget *parent = 0);
+
+    /** Split a function name of the form "TYP - Group - Description" into its
+        three parts. Returns false, leaving the outputs untouched, when $name
+        does not follow the convention - as song-specific functions generally
+        do not. */
+    static bool splitName(const QString& name, QString& type,
+                          QString& group, QString& description);
+
+    /** The full, unsplit name of whatever $item represents: a function's name
+        straight from the engine, or a folder's name. Use this instead of
+        reading COL_NAME when the name is shown outside the tree. */
+    QString itemName(const QTreeWidgetItem* item) const;
 
     /** Update all functions to function tree */
     void updateTree();

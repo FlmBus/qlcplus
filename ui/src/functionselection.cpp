@@ -58,14 +58,13 @@ FunctionSelection::FunctionSelection(QWidget* parent, Doc* doc)
 
     setupUi(this);
 
+    /* The tree sets up its own columns - name, type and group - and sorts by
+       the type code first, like the function manager does. */
     m_funcTree = new FunctionsTreeWidget(m_doc, this);
-    QStringList labels;
-    labels << tr("Functions");
-    m_funcTree->setHeaderLabels(labels);
     m_funcTree->setRootIsDecorated(true);
     m_funcTree->setAllColumnsShowFocus(true);
     m_funcTree->setSortingEnabled(true);
-    m_funcTree->sortByColumn(KColumnName, Qt::AscendingOrder);
+    m_funcTree->sortByColumn(FunctionsTreeWidget::COL_TYPE, Qt::AscendingOrder);
     m_treeVbox->addWidget(m_funcTree);
 
     QAction* action = new QAction(this);
@@ -291,7 +290,7 @@ void FunctionSelection::refillTree()
     // Show a "none" entry
     if (m_none == true)
     {
-        m_noneItem = new QTreeWidgetItem(m_funcTree);
+        m_noneItem = new FunctionTreeItem(m_funcTree);
         m_noneItem->setText(KColumnName, tr("<No function>"));
         m_noneItem->setIcon(KColumnName, QIcon(":/uncheck.png"));
         m_noneItem->setData(KColumnName, Qt::UserRole, Function::invalidId());
@@ -300,7 +299,7 @@ void FunctionSelection::refillTree()
 
     if (m_newTrack == true)
     {
-        m_newTrackItem = new QTreeWidgetItem(m_funcTree);
+        m_newTrackItem = new FunctionTreeItem(m_funcTree);
         m_newTrackItem->setText(KColumnName, tr("<Create a new track>"));
         m_newTrackItem->setIcon(KColumnName, QIcon(":/edit_add.png"));
         m_newTrackItem->setData(KColumnName, Qt::UserRole, Function::invalidId());
@@ -325,7 +324,6 @@ void FunctionSelection::refillTree()
         }
     }
 
-    m_funcTree->resizeColumnToContents(KColumnName);
     for (int i = 0; i < m_funcTree->topLevelItemCount(); i++)
     {
         QTreeWidgetItem *item = m_funcTree->topLevelItem(i);

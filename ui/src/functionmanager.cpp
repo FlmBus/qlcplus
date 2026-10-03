@@ -64,9 +64,6 @@
 #include "doc.h"
 #include "efx.h"
 
-#define COL_NAME 0
-#define COL_PATH 1
-
 #define SETTINGS_SPLITTER "functionmanager/splitter"
 
 FunctionManager* FunctionManager::s_instance = NULL;
@@ -573,7 +570,7 @@ void FunctionManager::slotClone()
     while (it.hasNext() == true)
     {
         QTreeWidgetItem* item = it.next();
-        quint32 fid = item->data(COL_NAME, Qt::UserRole).toUInt();
+        quint32 fid = item->data(FunctionsTreeWidget::COL_NAME, Qt::UserRole).toUInt();
         if (fid == Function::invalidId())
             continue;
         copyFunction(m_tree->itemFunctionId(item));
@@ -590,7 +587,7 @@ void FunctionManager::slotDelete()
     QString msg;
     QTreeWidgetItem *firstItem = m_tree->selectedItems().first();
 
-    if (firstItem->childCount() > 0 || firstItem->text(COL_PATH).isEmpty() == false)
+    if (firstItem->childCount() > 0 || firstItem->text(FunctionsTreeWidget::COL_PATH).isEmpty() == false)
         isFolder = true;
 
     if (isFolder == true)
@@ -602,7 +599,7 @@ void FunctionManager::slotDelete()
     while (it.hasNext() == true)
     {
         QTreeWidgetItem *item = it.next();
-        msg.append(item->text(COL_NAME));
+        msg.append(m_tree->itemName(item));
         if (it.hasNext())
             msg.append(", ");
 
@@ -613,7 +610,7 @@ void FunctionManager::slotDelete()
             {
                 QTreeWidgetItem *child = item->child(i);
                 if (i > 0) msg.append(", ");
-                msg.append(child->text(COL_NAME));
+                msg.append(m_tree->itemName(child));
             }
             msg.append(")");
         }
@@ -674,7 +671,7 @@ void FunctionManager::updateActionStatus()
         }
 
         // check if this is a folder
-        if (m_tree->selectedItems().count() == 1 && firstItem->text(COL_PATH).isEmpty() == false)
+        if (m_tree->selectedItems().count() == 1 && firstItem->text(FunctionsTreeWidget::COL_PATH).isEmpty() == false)
             validSelection = true;
     }
 
@@ -735,15 +732,12 @@ void FunctionManager::initTree()
     Q_ASSERT(m_hsplitter != NULL);
     m_hsplitter->addWidget(m_tree);
 
-    QStringList labels;
-    labels << tr("Function"); // << "Path";
-    m_tree->setHeaderLabels(labels);
     m_tree->setRootIsDecorated(true);
     m_tree->setAllColumnsShowFocus(true);
     m_tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setSortingEnabled(true);
-    m_tree->sortByColumn(COL_NAME, Qt::AscendingOrder);
+    m_tree->sortByColumn(FunctionsTreeWidget::COL_TYPE, Qt::AscendingOrder);
     m_tree->setDragEnabled(true);
     m_tree->setAcceptDrops(true);
     m_tree->setDragDropMode(QAbstractItemView::InternalMove);
