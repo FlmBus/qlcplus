@@ -93,6 +93,7 @@ FunctionManager::FunctionManager(QWidget* parent, Doc* doc)
     , m_autostartAction(NULL)
     , m_wizardAction(NULL)
     , m_addFolderAction(NULL)
+    , m_expandAllAction(NULL)
     , m_cloneAction(NULL)
     , m_deleteAction(NULL)
     , m_selectAllAction(NULL)
@@ -257,6 +258,12 @@ void FunctionManager::initActions()
     connect(m_addFolderAction, SIGNAL(triggered(bool)),
             this, SLOT(slotAddFolder()));
 
+    m_expandAllAction = new QAction(QIcon(":/expand.png"),
+                                    tr("E&xpand all"), this);
+    m_expandAllAction->setShortcut(QKeySequence("CTRL+E"));
+    connect(m_expandAllAction, SIGNAL(triggered(bool)),
+            this, SLOT(slotExpandAll()));
+
     m_autostartAction = new QAction(QIcon(":/autostart.png"),
                                     tr("Select Startup Function"), this);
     connect(m_autostartAction, SIGNAL(triggered(bool)),
@@ -306,6 +313,7 @@ void FunctionManager::initToolbar()
     m_toolbar->addAction(m_addVideoAction);
     m_toolbar->addSeparator();
     m_toolbar->addAction(m_addFolderAction);
+    m_toolbar->addAction(m_expandAllAction);
     m_toolbar->addSeparator();
     m_toolbar->addAction(m_autostartAction);
     m_toolbar->addAction(m_wizardAction);
@@ -529,6 +537,12 @@ void FunctionManager::slotAddFolder()
     m_doc->setModified();
 }
 
+void FunctionManager::slotExpandAll()
+{
+    m_tree->toggleExpandAll();
+    updateActionStatus();
+}
+
 void FunctionManager::slotSelectAutostartFunction()
 {
     FunctionSelection fs(this, m_doc);
@@ -641,6 +655,13 @@ void FunctionManager::updateActionStatus()
        disabling the action here made the first top-level folder
        uncreatable. */
     m_addFolderAction->setEnabled(true);
+
+    /* One action instead of two buttons, so the label has to say which way it
+       will go. Matches shift-clicking an arrow, which also follows state. */
+    if (m_tree->hasCollapsedItems())
+        m_expandAllAction->setText(tr("E&xpand all"));
+    else
+        m_expandAllAction->setText(tr("&Collapse all"));
 
     if (m_tree->selectedItems().isEmpty() == false)
     {
@@ -823,6 +844,7 @@ void FunctionManager::slotTreeContextMenuRequested()
     menu.addAction(m_addVideoAction);
     menu.addSeparator();
     menu.addAction(m_addFolderAction);
+    menu.addAction(m_expandAllAction);
     menu.addSeparator();
     menu.addAction(m_wizardAction);
 

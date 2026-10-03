@@ -126,6 +126,9 @@ protected slots:
     void slotAddVideo();
     void slotAddFolder();
 
+    /** Expand the whole tree, or collapse it if nothing is collapsed */
+    void slotExpandAll();
+
     void slotSelectAutostartFunction();
     void slotWizard();
 
@@ -152,6 +155,7 @@ protected:
     QAction* m_autostartAction;
     QAction* m_wizardAction;
     QAction* m_addFolderAction;
+    QAction* m_expandAllAction;
     QAction* m_cloneAction;
     QAction* m_deleteAction;
     QAction* m_selectAllAction;

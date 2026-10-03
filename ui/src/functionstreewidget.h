@@ -78,6 +78,12 @@ public:
     /** Get the item that represents the given function. */
     QTreeWidgetItem* functionItem(const Function* function);
 
+    /** True if at least one item with children is currently collapsed. */
+    bool hasCollapsedItems() const;
+
+    /** Expand everything, or collapse everything if nothing is collapsed. */
+    void toggleExpandAll();
+
 private:
     /** Update $item's contents from the given $function */
     void updateFunctionItem(QTreeWidgetItem* item, const Function* function);

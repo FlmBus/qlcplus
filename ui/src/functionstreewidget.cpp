@@ -18,7 +18,9 @@
 */
 
 #include <QContextMenuEvent>
+#include <QTreeWidgetItemIterator>
 #include <QFontDatabase>
+#include <QMouseEvent>
 #include <QDebug>
 
 #include "functionstreewidget.h"
@@ -363,11 +365,54 @@ void FunctionsTreeWidget::slotUpdateChildrenPath(QTreeWidgetItem *root)
 
 void FunctionsTreeWidget::mousePressEvent(QMouseEvent *event)
 {
+    /* Shift-click on an expand/collapse arrow acts on the whole tree, in the
+       direction the clicked arrow would have gone. The arrow is drawn to the
+       left of the item's own rect, so a click before visualRect() started is
+       a click on the branch indicator rather than on the item - which also
+       keeps plain shift-click range selection on item text working. */
+    if (event->modifiers() & Qt::ShiftModifier)
+    {
+        const QModelIndex index = indexAt(event->pos());
+        if (index.isValid() && event->pos().x() < visualRect(index).left())
+        {
+            QTreeWidgetItem *item = itemFromIndex(index);
+            if (item != NULL && item->childCount() > 0)
+            {
+                if (item->isExpanded())
+                    collapseAll();
+                else
+                    expandAll();
+                return;
+            }
+        }
+    }
+
     QTreeWidget::mousePressEvent(event);
 
     m_draggedItems = selectedItems(); //itemAt(event->pos());
 }
 
+bool FunctionsTreeWidget::hasCollapsedItems() const
+{
+    QTreeWidgetItemIterator it(const_cast<FunctionsTreeWidget*>(this));
+    while (*it != NULL)
+    {
+        QTreeWidgetItem *item = *it;
+        if (item->childCount() > 0 && item->isExpanded() == false)
+            return true;
+        ++it;
+    }
+
+    return false;
+}
+
+void FunctionsTreeWidget::toggleExpandAll()
+{
+    if (hasCollapsedItems())
+        expandAll();
+    else
+        collapseAll();
+}
 
 void FunctionsTreeWidget::dropEvent(QDropEvent *event)
 {
