@@ -42,12 +42,20 @@
  *  reads sensibly without a code change. */
 QColor functionTypeTagColor(const QString& type, const QColor& background);
 
-/** Accent colour for a fixture group. Group names are free text, so the colour
- *  is derived from the name instead of looked up: the hue comes from a stable
- *  hash of the name, while saturation and lightness are fixed to values that
- *  stay legible on $background. Same name always gives the same colour, on
- *  every machine and every run. */
-QColor functionGroupTagColor(const QString& group, const QColor& background);
+/** Accent colour for a fixture group, by the group's registration index.
+ *
+ *  Group names are free text, so there is no table to look them up in. Hashing
+ *  the name was the obvious answer but gives collisions - with a dozen groups
+ *  some inevitably share a hue. Taking the colour from the order groups are
+ *  first seen instead makes every group distinct, and since a project loads in
+ *  the same order everywhere, a group keeps its colour across machines.
+ *  Indices are spread by the golden angle, so any number of groups stays as
+ *  far apart in hue as possible and a new group never disturbs the others. */
+QColor functionGroupTagColor(int groupIndex, const QColor& background);
+
+/** Black or white, whichever reads better on $fill. For solid pills, where the
+ *  text sits on the tag colour rather than on the row. */
+QColor readableTextOn(const QColor& fill);
 
 /** @} */
 

@@ -22,7 +22,9 @@
 #define FUNCTIONSTREEWIDGET_H
 
 #include <QTreeWidget>
+#include <QHash>
 
+class FunctionsTreeDelegate;
 class Function;
 class Doc;
 
@@ -139,12 +141,28 @@ public:
     /** Expand everything, or collapse everything if nothing is collapsed. */
     void toggleExpandAll();
 
+    /** Which colour a fixture group gets, as an index into the generated
+        palette, or -1 for a group this tree has not seen. Groups are
+        registered as their functions are added, so the index follows the order
+        the project loads in - which is the same on every machine, and leaves
+        existing groups alone when a new one appears. */
+    int groupColorIndex(const QString& group) const;
+
 private:
     /** Update $item's contents from the given $function */
     void updateFunctionItem(QTreeWidgetItem* item, const Function* function);
 
+    /** Give $group a colour index if it does not have one yet. */
+    void registerGroup(const QString& group);
+
+    /** Re-measure the width the pills need, so every title starts at the same
+        offset. Called whenever the items change. */
+    void updateTagZoneWidth();
+
 private:
     Doc* m_doc;
+    FunctionsTreeDelegate* m_delegate;
+    QHash <QString, int> m_groupColors;
 
     /*********************************************************************
      * Tree folders
@@ -169,6 +187,8 @@ private:
      * Drag & Drop events
      *********************************************************************/
 protected:
+    void resizeEvent(QResizeEvent *event);
+
     void mousePressEvent(QMouseEvent *event);
 
     void dropEvent(QDropEvent *event);

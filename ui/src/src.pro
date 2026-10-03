@@ -82,6 +82,7 @@ HEADERS += aboutbox.h \
            flowlayout.h \
            functionliveeditdialog.h \
            functionselection.h \
+           functionstreedelegate.h \
            functionstreewidget.h \
            functiontagcolors.h \
            functionwizard.h \
@@ -265,6 +266,7 @@ SOURCES += aboutbox.cpp \
            functionliveeditdialog.cpp \
            functionmanager.cpp \
            functionselection.cpp \
+           functionstreedelegate.cpp \
            functionstreewidget.cpp \
            functiontagcolors.cpp \
            functionwizard.cpp \

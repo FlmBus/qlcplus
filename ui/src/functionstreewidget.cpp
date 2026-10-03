@@ -18,15 +18,15 @@
 */
 
 #include <QContextMenuEvent>
-#include <QBrush>
 #include <QTreeWidgetItemIterator>
 #include <QFontDatabase>
 #include <QMouseEvent>
+#include <QResizeEvent>
 #include <QHeaderView>
 #include <QCollator>
 #include <QDebug>
 
-#include "functiontagcolors.h"
+#include "functionstreedelegate.h"
 #include "functionstreewidget.h"
 #include "function.h"
 #include "doc.h"
@@ -82,6 +82,7 @@ bool FunctionTreeItem::operator<(const QTreeWidgetItem& other) const
 FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
     QTreeWidget(parent)
   , m_doc(doc)
+  , m_delegate(NULL)
 {
     /* The name of a fixture function carries three dimensions:
        "TYP - Group - Description". Give each one its own column so they line
@@ -92,11 +93,16 @@ FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
     labels << tr("Function") << tr("Type") << tr("Group");
     setHeaderLabels(labels);
 
-    /* The description can be long and the two parsed columns never are. */
-    header()->setStretchLastSection(false);
-    header()->setSectionResizeMode(COL_NAME, QHeaderView::Stretch);
-    header()->setSectionResizeMode(COL_TYPE, QHeaderView::ResizeToContents);
-    header()->setSectionResizeMode(COL_GROUP, QHeaderView::ResizeToContents);
+    /* Type and group are shown as pills in front of the title rather than in
+       columns of their own, so their columns are hidden instead of removed:
+       the text stays in the model, which is what sorting below and
+       FunctionsTreeDelegate both read. */
+    setColumnHidden(COL_TYPE, true);
+    setColumnHidden(COL_GROUP, true);
+    header()->setStretchLastSection(true);
+
+    m_delegate = new FunctionsTreeDelegate(this);
+    setItemDelegate(m_delegate);
 
     /* Sort by type first: that reproduces the order the single-column tree
        used to show, since the type code led every name. */
@@ -175,11 +181,17 @@ void FunctionsTreeWidget::updateTree()
     }
 
     blockSignals(false);
+    updateTagZoneWidth();
 }
 
 void FunctionsTreeWidget::clearTree()
 {
     m_foldersMap.clear();
+
+    /* Forget the group colours too: a different project has different groups,
+       and indices handed out for the old one would colour them arbitrarily. */
+    m_groupColors.clear();
+
     clear();
 }
 
@@ -198,6 +210,7 @@ void FunctionsTreeWidget::functionNameChanged(quint32 fid)
         updateFunctionItem(item, function);
 
     blockSignals(false);
+    updateTagZoneWidth();
 }
 
 QTreeWidgetItem *FunctionsTreeWidget::addFunction(quint32 fid)
@@ -217,6 +230,7 @@ QTreeWidgetItem *FunctionsTreeWidget::addFunction(quint32 fid)
     if (parent != NULL)
         function->setPath(parent->text(COL_PATH));
     blockSignals(false);
+    updateTagZoneWidth();
     return item;
 }
 
@@ -244,22 +258,9 @@ void FunctionsTreeWidget::updateFunctionItem(QTreeWidgetItem* item, const Functi
     for (int i = COL_NAME; i < COL_PATH; i++)
         item->setToolTip(i, function->name());
 
-    /* Colour the two parsed columns so the list can be scanned by eye. Both
-       colours are derived against the row background, so they follow the
-       system theme rather than assuming one. An unsplit name leaves both
-       columns empty, and resetting the brushes keeps a renamed function from
-       carrying a stale colour. */
-    const QColor background = palette().color(QPalette::Base);
-    if (type.isEmpty())
-    {
-        item->setForeground(COL_TYPE, QBrush());
-        item->setForeground(COL_GROUP, QBrush());
-    }
-    else
-    {
-        item->setForeground(COL_TYPE, QBrush(functionTypeTagColor(type, background)));
-        item->setForeground(COL_GROUP, QBrush(functionGroupTagColor(group, background)));
-    }
+    /* The pills are drawn by FunctionsTreeDelegate, which needs a colour index
+       for the group; claim one now rather than during painting. */
+    registerGroup(group);
 
     item->setIcon(COL_NAME, function->getIcon());
     item->setData(COL_NAME, Qt::UserRole, function->id());
@@ -505,6 +506,14 @@ void FunctionsTreeWidget::slotUpdateChildrenPath(QTreeWidgetItem *root)
     }
 }
 
+void FunctionsTreeWidget::resizeEvent(QResizeEvent *event)
+{
+    QTreeWidget::resizeEvent(event);
+
+    // the shared pill zone is capped against the viewport width
+    updateTagZoneWidth();
+}
+
 void FunctionsTreeWidget::mousePressEvent(QMouseEvent *event)
 {
     /* Shift-click on an expand/collapse arrow acts on the whole tree, in the
@@ -554,6 +563,49 @@ void FunctionsTreeWidget::toggleExpandAll()
         expandAll();
     else
         collapseAll();
+}
+
+void FunctionsTreeWidget::registerGroup(const QString& group)
+{
+    const QString key = group.trimmed().toCaseFolded();
+
+    // case and stray spaces should not split one group into several colours
+    if (key.isEmpty() || m_groupColors.contains(key))
+        return;
+
+    m_groupColors.insert(key, m_groupColors.count());
+}
+
+int FunctionsTreeWidget::groupColorIndex(const QString& group) const
+{
+    return m_groupColors.value(group.trimmed().toCaseFolded(), -1);
+}
+
+void FunctionsTreeWidget::updateTagZoneWidth()
+{
+    if (m_delegate == NULL)
+        return;
+
+    int widest = 0;
+
+    QTreeWidgetItemIterator it(this);
+    while (*it != NULL)
+    {
+        QTreeWidgetItem *item = *it;
+        widest = qMax(widest, FunctionsTreeDelegate::tagZoneWidth(item->text(COL_TYPE),
+                                                                  item->text(COL_GROUP),
+                                                                  font()));
+        ++it;
+    }
+
+    /* One very long group name should not squeeze the titles off the edge, so
+       the shared zone stops at half the viewport. A row needing more than that
+       pushes its own title along instead. */
+    const int limit = viewport()->width() / 2;
+    if (limit > 0)
+        widest = qMin(widest, limit);
+
+    m_delegate->setTagZoneWidth(widest);
 }
 
 void FunctionsTreeWidget::dropEvent(QDropEvent *event)

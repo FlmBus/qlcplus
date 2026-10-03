@@ -74,6 +74,7 @@ add_library(${module_name}
     functionliveeditdialog.cpp functionliveeditdialog.h
     functionmanager.cpp functionmanager.h
     functionselection.cpp functionselection.h functionselection.ui
+    functionstreedelegate.cpp functionstreedelegate.h
     functionstreewidget.cpp functionstreewidget.h
     functiontagcolors.cpp functiontagcolors.h
     functionwizard.cpp functionwizard.h functionwizard.ui

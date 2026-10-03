@@ -17,17 +17,10 @@
   limitations under the License.
 */
 
-#include <QByteArray>
 #include <QHash>
 #include <qmath.h>
 
 #include "functiontagcolors.h"
-
-/** Hues this far apart are told apart at a glance. Fewer, well separated hues
-    beat a continuous spread: two groups landing three degrees apart read as
-    "nearly the same, is that difference meaningful?", which is worse than
-    plainly sharing a colour. */
-#define GROUP_HUE_BUCKETS 12
 
 /** Contrast ratio every tag colour has to reach against the row background.
     WCAG AA for text of this size. */
@@ -135,46 +128,33 @@ QColor functionTypeTagColor(const QString& type, const QColor& background)
  * Groups - free text, so derived rather than looked up
  ****************************************************************************/
 
-/**
- * FNV-1a over the UTF-8 bytes.
- *
- * Deliberately not qHash: its algorithm is not guaranteed stable across Qt
- * versions, and these machines do not all run the same one - Qt 5.15.2 on
- * Windows and Linux, 5.15.19 on macOS. A group has to keep its colour
- * everywhere, so the hash is spelled out here and will never move.
- */
-static quint32 stableHash(const QString& text)
-{
-    const QByteArray bytes = text.toUtf8();
-    quint32 hash = 2166136261u;
-
-    for (int i = 0; i < bytes.size(); i++)
-    {
-        hash ^= quint32(uchar(bytes.at(i)));
-        hash *= 16777619u;
-    }
-
-    return hash;
-}
-
-QColor functionGroupTagColor(const QString& group, const QColor& background)
+QColor functionGroupTagColor(int groupIndex, const QColor& background)
 {
     const bool onDark = background.lightness() < 128;
 
-    /* Case and stray spaces should not split one group into several colours */
-    const QString key = group.trimmed().toCaseFolded();
-
-    if (key.isEmpty())
+    if (groupIndex < 0)
         return withContrast(onDark ? QColor("#8b949e") : QColor("#57606a"), background);
 
-    const int bucket = int(stableHash(key) % GROUP_HUE_BUCKETS);
-    const int hue = bucket * (360 / GROUP_HUE_BUCKETS);
+    /* The golden angle: successive indices land as far apart on the colour
+       wheel as they can, for any number of groups, and adding one never moves
+       the others. Hashing the name would have been stateless but collides -
+       with a dozen groups some would share a hue. */
+    const qreal hue = fmod(qreal(groupIndex) * 137.508, 360.0);
 
     /* Saturation and lightness carry legibility, the hue carries identity.
-       Starting lightness is a reasonable guess for the theme; withContrast()
-       then moves it until the ratio is genuinely met for this hue. */
+       The starting lightness suits the theme; withContrast() then moves it
+       until the ratio is genuinely met for this particular hue. */
     const int saturation = onDark ? 150 : 170;
     const int lightness = onDark ? 185 : 95;
 
-    return withContrast(QColor::fromHsl(hue, saturation, lightness), background);
+    return withContrast(QColor::fromHsl(int(hue), saturation, lightness), background);
+}
+
+QColor readableTextOn(const QColor& fill)
+{
+    /* Pick whichever of black or white the fill contrasts with better, rather
+       than guessing from a lightness threshold - the two disagree around
+       mid-tones, which is exactly where pill colours sit. */
+    return contrastRatio(Qt::black, fill) >= contrastRatio(Qt::white, fill)
+           ? QColor(Qt::black) : QColor(Qt::white);
 }
