@@ -504,7 +504,12 @@ if(MSVC)
 
 elseif(NOT APPLE AND NOT IOS)
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
+    # No -Werror in this fork. The tree is 4.13.1 (2023) but our toolchains are
+    # current - GCC 14+ on MSYS2, GCC 11+ on Linux - and they raise warnings the
+    # code was never written against. Upstream hit the same thing and had to add
+    # -Wno-template-id-cdtor for GCC 14 on master; 4.13.1 predates that fix.
+    # We are not upstream, so warnings-as-errors only buys us broken builds.
+    # Warnings are still reported, just not fatal.
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wextra")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 endif()

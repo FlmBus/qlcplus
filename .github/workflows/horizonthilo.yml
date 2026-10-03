@@ -45,3 +45,156 @@ jobs:
           name: qlcplus-macos-arm64
           path: "*.dmg"
           if-no-files-found: error
+
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libfftw3-dev libftdi1-dev libmad0-dev \
+            libsndfile1-dev libudev-dev libusb-1.0-0-dev liblo-dev \
+            libgl1-mesa-dev libxml2-utils shared-mime-info pkg-config
+
+      - name: Install Qt 5.15.2
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "5.15.2"
+          target: desktop
+          arch: gcc_64
+          modules: qtscript
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR/lib/cmake" -DINSTALL_ROOT="$PWD/install_root"
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Install
+        run: cmake --install build
+
+      - name: Package
+        run: tar czf qlcplus-linux-x86_64.tar.gz -C install_root .
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: qlcplus-linux-x86_64
+          path: qlcplus-linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: Windows x86_64
+    runs-on: windows-latest
+    env:
+      QMAKESPEC: win32-g++
+      CC: /mingw64/bin/x86_64-w64-mingw32-gcc.exe
+      CXX: /mingw64/bin/x86_64-w64-mingw32-g++.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set ENV variables
+        shell: bash
+        run: |
+          echo "NPROC=$(nproc)" >> $GITHUB_ENV
+          echo "OUTFILE=$(grep 'OutFile' platforms/windows/qlcplus4Qt5.nsi | cut -d'"' -f 2)" >> $GITHUB_ENV
+          echo "NSIS_SCRIPT=qlcplus4Qt5.nsi" >> $GITHUB_ENV
+
+      - name: Update and install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          release: true
+          update: false
+          path-type: inherit
+          install: >-
+            wget
+            unzip
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gcc-libs
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-libmad
+            mingw-w64-x86_64-libsndfile
+            mingw-w64-x86_64-flac
+            mingw-w64-x86_64-fftw
+            mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-python-lxml
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-multimedia
+            mingw-w64-x86_64-qt5-serialport
+            mingw-w64-x86_64-qt5-script
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-imageformats
+            mingw-w64-x86_64-qt5-svg
+            mingw-w64-x86_64-qt5-declarative
+            mingw-w64-x86_64-nsis
+
+      - name: D2XX SDK
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          mkdir -p /c/projects/D2XXSDK
+          wget https://ftdichip.com/wp-content/uploads/2023/09/CDM-v2.12.36.4-WHQL-Certified.zip -O /c/projects/D2XXSDK/cdm.zip
+          cd /c/projects/D2XXSDK
+          unzip cdm.zip
+          cd amd64
+          gendef.exe - ftd2xx64.dll > ftd2xx.def
+          dlltool -k --input-def ftd2xx.def --dllname ftd2xx64.dll --output-lib libftd2xx.a
+
+      - name: Fix build
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          # force a release build
+          sed -i -e 's/Debug/Release/g' CMakeLists.txt
+          # disable Velleman plugin
+          sed -i -e 's/    add_subdirectory(velleman)/#    add_subdirectory(velleman)/g' plugins/CMakeLists.txt
+          # fix MSYS2 system path
+          sed -i -e 's/$ENV{SystemDrive}\/msys64/D:\/a\/_temp\/msys64/g' platforms/windows/CMakeLists.txt
+          # fix project path in NSIS script
+          sed -i -e 's/c\:\\projects/d:\\a\\qlcplus/g' platforms/windows/${{env.NSIS_SCRIPT}}
+
+      - name: Configure
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          mkdir build
+          cd build
+          cmake -G "Unix Makefiles" ..
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          cd build
+          make -j${NPROC}
+
+      - name: Install
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          cd build
+          make install/fast
+          cd ..
+          cp *.qm /c/qlcplus
+
+      - name: Build installation package
+        shell: msys2 {0}
+        run: |
+          set MSYSTEM=MINGW64
+          cd /c/qlcplus
+          makensis -X'SetCompressor /FINAL lzma' ${{env.NSIS_SCRIPT}}
+          mv /c/qlcplus/${{env.OUTFILE}} /d/a/qlcplus/qlcplus
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: qlcplus-windows-x86_64
+          path: ${{env.OUTFILE}}
+          if-no-files-found: error
