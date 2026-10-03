@@ -272,8 +272,15 @@ void App::init()
     m_tab->addTab(w, QIcon(":/fixture.png"), tr("Fixtures"));
     w = new FunctionManager(m_tab, m_doc);
     m_tab->addTab(w, QIcon(":/function.png"), tr("Functions"));
+    /* We never use Show functions, so the Show Manager tab is not exposed.
+       The widget is still constructed, because clearDocument() and
+       enableKioskMode() both dereference ShowManager::instance(), and the
+       engine keeps full Show support so that projects still round-trip to a
+       stock QLC+ install. removeTab() does not delete the page - it hides it
+       and reparents it to NULL - which is exactly what kiosk mode does. */
     w = new ShowManager(m_tab, m_doc);
     m_tab->addTab(w, QIcon(":/show.png"), tr("Shows"));
+    m_tab->removeTab(m_tab->indexOf(w));
     w = new VirtualConsole(m_tab, m_doc);
     m_tab->addTab(w, QIcon(":/virtualconsole.png"), tr("Virtual Console"));
     w = new SimpleDesk(m_tab, m_doc);
