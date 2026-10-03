@@ -18,6 +18,7 @@
 */
 
 #include <QContextMenuEvent>
+#include <QFontDatabase>
 #include <QDebug>
 
 #include "functionstreewidget.h"
@@ -32,6 +33,19 @@ FunctionsTreeWidget::FunctionsTreeWidget(Doc *doc, QWidget *parent) :
   , m_doc(doc)
 {
     sortItems(COL_NAME, Qt::AscendingOrder);
+
+    /* Monospace, so names and numbers line up when scanning down the list.
+       Take the platform's own fixed-pitch font - Menlo on macOS, Consolas on
+       Windows, usually DejaVu Sans Mono on Linux - rather than hardcoding a
+       family that may not exist everywhere, and keep the interface font's
+       size so row heights stay as they were. */
+    QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    const QFont base = font();
+    if (base.pointSizeF() > 0)
+        mono.setPointSizeF(base.pointSizeF());
+    else if (base.pixelSize() > 0)
+        mono.setPixelSize(base.pixelSize());
+    setFont(mono);
 
     QTreeWidgetItem *root = invisibleRootItem();
     root->setFlags(root->flags() & ~Qt::ItemIsDropEnabled);
