@@ -173,12 +173,30 @@ endif()
 set(msys_path "${INSTALLROOT}/${LIBSDIR}")
 set(msys_files "${SYS_LIBS_PATH}/libstdc++-6.dll"
                 "${SYS_LIBS_PATH}/libgcc_s_seh-1.dll"
-                "${SYS_LIBS_PATH}/libwinpthread-1.dll"
-                "${SYS_LIBS_PATH}/libicuin74.dll"
-                "${SYS_LIBS_PATH}/libicuuc74.dll"
-                "${SYS_LIBS_PATH}/libicudt74.dll"
-                "${SYS_LIBS_PATH}/libmd4c.dll"
-                "${SYS_LIBS_PATH}/libusb-1.0.dll")
+                "${SYS_LIBS_PATH}/libwinpthread-1.dll")
+
+# ICU's DLL names carry its major version and MSYS2 bumps it regularly: this
+# tree pinned 74, which no longer exists and failed the install outright.
+# Glob the version actually present instead.
+file(GLOB icu_files "${SYS_LIBS_PATH}/libicuin*.dll"
+                    "${SYS_LIBS_PATH}/libicuuc*.dll"
+                    "${SYS_LIBS_PATH}/libicudt*.dll")
+if(icu_files)
+    list(APPEND msys_files ${icu_files})
+else()
+    message(WARNING "No ICU DLLs found in ${SYS_LIBS_PATH} - Qt5Core may fail to start")
+endif()
+
+# Optional, and renamed or dropped across MSYS2 updates, so guard them the
+# same way the audio libraries below already are.
+foreach(_opt libmd4c.dll libusb-1.0.dll libpcre2-16-0.dll libzstd.dll)
+    if(EXISTS "${SYS_LIBS_PATH}/${_opt}")
+        list(APPEND msys_files "${SYS_LIBS_PATH}/${_opt}")
+    else()
+        message(STATUS "Optional MSYS2 library not present, skipping: ${_opt}")
+    endif()
+endforeach()
+
 install(FILES ${msys_files} DESTINATION ${msys_path})
 
 # audio libraries

@@ -52,4 +52,15 @@ cd platforms/macos/dmg
     --app-drop-link 200 150 \
     $OUTDIR/QLC+_$VERSION.dmg \
     ~/QLC+.app
+rc=$?
 cd -
+
+# Verify we really produced the image. create-dmg can fail partway and leave
+# only the writable rw.* intermediate, which previously went unnoticed because
+# nothing here checked.
+if [ $rc -ne 0 ] || [ ! -f "$OUTDIR/QLC+_$VERSION.dmg" ]; then
+    echo "DMG creation failed: $OUTDIR/QLC+_$VERSION.dmg was not produced."
+    rm -f "$OUTDIR/rw.QLC+_$VERSION.dmg"
+    exit 1
+fi
+echo "Created $OUTDIR/QLC+_$VERSION.dmg"

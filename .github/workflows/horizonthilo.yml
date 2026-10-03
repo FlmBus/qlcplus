@@ -81,7 +81,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: qlcplus-macos-arm64
-          path: "*.dmg"
+          # Deliberately not "*.dmg": that also matches create-dmg's writable
+          # rw.* intermediate, which once got uploaded in place of the real
+          # image when create-dmg died partway through.
+          path: "QLC+_*.dmg"
           if-no-files-found: error
 
   linux:

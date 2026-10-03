@@ -376,7 +376,12 @@ echo "Done fixing permissions"
 # Make the top window open itself on mount:
 if [[ $SANDBOX_SAFE -eq 0 ]]; then
 	echo "Blessing started"
-	bless --folder "${MOUNT_DIR}" --openfolder "${MOUNT_DIR}"
+	# --openfolder is unsupported on Apple Silicon and bless exits non-zero,
+	# which under `set -e` aborted the script before the image was unmounted
+	# and converted - leaving only the rw.* intermediate behind. It only makes
+	# the window auto-open on mount, so treat failure as cosmetic.
+	bless --folder "${MOUNT_DIR}" --openfolder "${MOUNT_DIR}" \
+		|| echo "Blessing skipped: not supported on this platform"
 	echo "Blessing finished"
 else
 	echo "Skipping blessing on sandbox"
