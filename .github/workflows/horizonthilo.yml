@@ -36,6 +36,49 @@ jobs:
             printf '%-12s %s\n' "$m" "$(pkg-config --modversion $m 2>&1 || echo MISSING)"
           done
 
+      # The qmake install rules copy each third-party dylib by its exact
+      # soname (platforms/macos/macos.pro and the *-nametool.pri files) and
+      # then run install_name_tool on the copy. Homebrew ships several of
+      # those names as symlinks to a versioned file, so the copy lands as a
+      # dangling link and install_name_tool fails with ENOENT. libusb happens
+      # to be a real file, which is why it alone survived.
+      # Replace the symlinks with real files up front. Also reports any name
+      # that no longer exists, since a soname bump would need a .pri change.
+      - name: Dereference Homebrew dylibs
+        run: |
+          set -u
+          fail=0
+          while IFS=: read -r mod lib; do
+            [ -n "$mod" ] || continue
+            libdir=$(pkg-config --variable libdir "$mod" 2>/dev/null || true)
+            if [ -z "$libdir" ]; then
+              printf '  %-22s no pkg-config module (skipped)\n' "$mod"
+              continue
+            fi
+            f="$libdir/$lib"
+            if [ -L "$f" ]; then
+              cp -L "$f" "$f.real" && mv -f "$f.real" "$f"
+              printf '  %-22s dereferenced %s\n' "$mod" "$lib"
+            elif [ -f "$f" ]; then
+              printf '  %-22s already a real file\n' "$mod"
+            else
+              printf '  %-22s MISSING %s (soname changed?)\n' "$mod" "$f"
+              fail=1
+            fi
+          done <<'LIBS'
+          libftdi1:libftdi1.2.dylib
+          libusb-1.0:libusb-1.0.0.dylib
+          mad:libmad.0.dylib
+          fftw3:libfftw3.3.dylib
+          sndfile:libsndfile.1.dylib
+          ogg:libogg.0.dylib
+          flac:libFLAC.12.dylib
+          vorbis:libvorbis.0.dylib
+          vorbisenc:libvorbisenc.2.dylib
+          opus:libopus.0.dylib
+          LIBS
+          [ "$fail" -eq 0 ] || echo "::warning::at least one expected dylib name was missing; the install step may fail"
+
       - name: Build and package
         run: ./create-dmg.sh
 
@@ -140,7 +183,9 @@ jobs:
         run: |
           set MSYSTEM=MINGW64
           mkdir -p /c/projects/D2XXSDK
-          wget https://ftdichip.com/wp-content/uploads/2023/09/CDM-v2.12.36.4-WHQL-Certified.zip -O /c/projects/D2XXSDK/cdm.zip
+          # ftdichip.com now answers 403 to CI runners, so use the copy the
+          # QLC+ project hosts - the same source upstream master switched to.
+          wget https://qlcplus.org/misc/CDM-v2.12.36.20-WHQL-Certified.zip -O /c/projects/D2XXSDK/cdm.zip
           cd /c/projects/D2XXSDK
           unzip cdm.zip
           cd amd64

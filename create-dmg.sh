@@ -25,17 +25,18 @@ if [ -z "$NUM_CPUS" ]; then
 fi
 
 make -j$NUM_CPUS
-
-if [ ! $? -eq 0 ]; then
+rc=$?
+if [ $rc -ne 0 ]; then
     echo Compiler error. Aborting package creation.
-    exit $?
+    exit $rc
 fi
 
 # Install to ~/QLC+.app/
 make install
-if [ ! $? -eq 0 ]; then
+rc=$?
+if [ $rc -ne 0 ]; then
     echo Installation error. Aborting package creation.
-    exit $?
+    exit $rc
 fi
 
 # Create Apple Disk iMaGe from ~/QLC+.app/
