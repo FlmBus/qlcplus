@@ -66,7 +66,20 @@ if [ -z "$MACDEPLOYQT" ]; then
     exit 1
 fi
 
-"$MACDEPLOYQT" ~/QLC+.app
+# macdeployqt will not touch a framework that is already in the bundle, and
+# `make install` has just copied the Qt ones in carrying the install names they
+# had in the Cellar. Left alone they keep referring to each other through
+# /opt/homebrew, and Qt's own dependencies - glib, pcre2, zstd, gettext,
+# libpng, md4c - never arrive at all. Clear them out so macdeployqt deploys
+# them itself, properly. Everything else in Frameworks (our own libraries,
+# fftw, libftdi, libusb) is left alone.
+rm -rf ~/QLC+.app/Contents/Frameworks/Qt*.framework
+
+# And it only rewrites the bundle's main executable, which here is the
+# launcher. Name the other two explicitly or they keep their Cellar paths.
+"$MACDEPLOYQT" ~/QLC+.app \
+    -executable="$HOME/QLC+.app/Contents/MacOS/qlcplus" \
+    -executable="$HOME/QLC+.app/Contents/MacOS/qlcplus-fixtureeditor"
 rc=$?
 if [ $rc -ne 0 ]; then
     echo "macdeployqt failed. Aborting package creation."

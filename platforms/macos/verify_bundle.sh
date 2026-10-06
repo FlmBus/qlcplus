@@ -39,8 +39,14 @@ while IFS= read -r f; do
     file -b "$f" 2>/dev/null | grep -q "Mach-O" || continue
     checked=$((checked + 1))
 
+    # For a library, otool -L reports the library's own install name as its
+    # first entry. That is not a dependency, and for a plugin loaded by path it
+    # does not matter what it says, so leave it out of the comparison.
+    self_id=$(otool -D "$f" 2>/dev/null | tail -n +2 | head -1)
+
     while IFS= read -r dep; do
         [ -n "$dep" ] || continue
+        [ -n "$self_id" ] && [ "$dep" = "$self_id" ] && continue
         if ! is_ok "$dep"; then
             if [ "$bad" -eq 0 ]; then
                 echo "verify_bundle: libraries referenced from outside the bundle"
