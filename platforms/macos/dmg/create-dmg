@@ -394,7 +394,26 @@ fi
 
 # Unmount
 echo "Unmounting disk image..."
-hdiutil detach "${DEV_NAME}"
+# Spotlight, the Finder left over from the AppleScript step, or a lingering
+# diskimages-helper can still hold the volume open for a moment, and detach
+# then fails with "Resource busy". Under `set -e` that aborts the script
+# before the image is converted, leaving only the rw.* intermediate. Flush and
+# retry before escalating to a forced detach.
+sync
+detached=0
+for attempt in 1 2 3 4 5; do
+	if hdiutil detach "${DEV_NAME}"; then
+		detached=1
+		break
+	fi
+	echo "Detach attempt ${attempt} failed; waiting for the volume to settle..."
+	sleep 3
+done
+
+if [[ $detached -eq 0 ]]; then
+	echo "Detach still failing; forcing it."
+	hdiutil detach -force "${DEV_NAME}"
+fi
 
 # Compress image
 echo "Compressing disk image..."
