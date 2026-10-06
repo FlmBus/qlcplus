@@ -77,6 +77,13 @@ jobs:
       - name: Build and package
         run: ./create-dmg.sh
 
+      # install_name_tool exits 0 when the path it was told to change is
+      # absent, so a rewrite that matches nothing is indistinguishable from one
+      # that worked. A bundle once shipped with every executable still pointing
+      # at /opt/homebrew/opt/qt@5 and CI was green throughout. Check it.
+      - name: Verify the bundle is self-contained
+        run: ./platforms/macos/verify_bundle.sh ~/QLC+.app
+
       - name: Upload DMG
         uses: actions/upload-artifact@v4
         with:
